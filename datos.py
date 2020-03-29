@@ -11,6 +11,7 @@ dentro de un contenedor.
 
 import pandas
 import pymongo
+import os
 
 class Datos:
     
@@ -26,13 +27,24 @@ class Datos:
         """Formamos el nuevo dataframe unificado"""
         d = {'DATE':datetime, 'TEMP':temperatura_sf, 'HUM':humedad_sf}
         dataframe = pandas.DataFrame(data=d)
+        
         """Conectamos con el contenedor de MongoDB"""
-        cliente = pymongo.MongoClient("mongodb+srv://lidia:lidia@mascotas-dxlr6.mongodb.net/test?retryWrites=true&w=majority")
+        usuario = os.environ.get('USER_ATLAS')
+        clave = os.environ.get('PSW_ATLAS')
+        if (type(usuario) != str or usuario == None or usuario == "" or
+            type(clave) != str or clave == None or clave == ""):
+            raise ConnectionError('Credenciales no válidas para acceder a MongoDBAtlas.')
+            
+        cliente = pymongo.MongoClient(
+            "mongodb+srv://"+usuario+":"+clave+"@meteorologia-haofp.mongodb.net/test?retryWrites=true&w=majority")
+        
         """Creamos la base de datos y la colección"""
-        coleccion = cliente['PrediccionesBD']['DatosTiempo']
+        self.coleccion = cliente['PrediccionesBD']['DatosTiempo']
+        """Vaciamos la colección para no acumular datos."""
+        self.coleccion.delete_many({})
         """Transformamos el dataframe a diccionario para poder insertarlo"""
         df_dict = dataframe.to_dict("records")
-        indice = coleccion.insert_one({'index':'SF', 'datos':df_dict}).inserted_id
+        indice = self.coleccion.insert_one({'index':'SF', 'datos':df_dict}).inserted_id
         return indice
 
 if __name__== "__main__":
