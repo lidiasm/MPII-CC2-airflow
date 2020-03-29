@@ -7,7 +7,7 @@ cuenta en la plataforma y su correspondiente API key.
 
 @author: Lidia Sánchez Mérida
 """
-
+import json
 """Framework Flask para implementar el microservicio REST"""
 from flask import Flask, Response
 app = Flask(__name__)
@@ -24,6 +24,6 @@ def index():
 def obtener_prediccion_arima(tiempo):
     resultado = pred.get_predicciones_api(tiempo)
     if (len(resultado) > 0):
-        return Response(resultado.to_html(), status=200)
+        return Response(json.dumps(resultado), status=200, mimetype="application/json")
     else:
         return Response("No hay predicciones", status=400)
