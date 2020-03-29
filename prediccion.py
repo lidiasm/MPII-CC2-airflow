@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 import requests
 import os
 import zipfile
+import time
 
 class Prediccion:
     
@@ -27,7 +28,7 @@ class Prediccion:
             raise ConnectionError('Credenciales no válidas para acceder a MongoDBAtlas.')
             
         self.mongodb = pymongo.MongoClient(
-            "mongodb+srv://"+usuario+":"+clave+"@mascotas-dxlr6.mongodb.net/test?retryWrites=true&w=majority")
+            "mongodb+srv://"+usuario+":"+clave+"@meteorologia-haofp.mongodb.net/test?retryWrites=true&w=majority")
         """Accedemos a la base de datos y en particular a la colección"""
         self.coleccion = self.mongodb['PrediccionesBD']['DatosTiempo']
     
@@ -81,15 +82,15 @@ class Prediccion:
         arima_hum = pickle.load( open( './modelos/modelo_HUM.p', "rb" ) )
         """Predicciones"""
         predicc_hum, confint = arima_hum.predict(n_periods=tiempo, return_conf_int=True)
-
         """Componemos el resultado de las predicciones"""
-        resultado = pd.DataFrame()
-        """Rango de horas"""
-        primera_fecha = datetime.now() + timedelta(hours=1)
-        resultado['hour'] = pd.date_range(primera_fecha.replace(second=0, microsecond=0), periods=tiempo, freq='H')
-        resultado['temp'] = predicc_temp
-        resultado['hum'] = predicc_hum
-
+        primera_fecha = datetime.now() + timedelta(hours=3)
+        rango_fechas = pd.date_range(primera_fecha.replace(second=0, microsecond=0), periods=tiempo, freq='H')
+        resultado = []
+        """JSON"""
+        for tiempo, temp, hum in zip(rango_fechas, predicc_temp, predicc_hum):
+            tiempo_unix = time.mktime(tiempo.timetuple())
+            resultado.append({'hour':datetime.utcfromtimestamp(tiempo_unix).strftime('%d-%m %H:%M'), 'temp':temp, 'hum':hum})
+        
         return resultado
 
     def get_predicciones_api(self, periodo):
@@ -110,25 +111,15 @@ class Prediccion:
         
         """Componemos el resultado con el periodo pasado como argumento"""        
         horas = 0
-        api_horas = []
-        api_temps = []
-        api_hums = []
+        resultado = []
         for key in prediccion:
-            api_horas.append(datetime.utcfromtimestamp(key['time']).strftime('%Y-%m-%d %H:%M:%S'))
-            api_temps.append(key['temperature'])
-            api_hums.append(key['humidity']*100.0)
             horas += 1
-            if (horas == tiempo): break
-        
-        """Dataframe final"""
-        resultado = pd.DataFrame()
-        resultado['hour'] = api_horas
-        resultado['temp'] = api_temps
-        resultado['hum'] = api_hums
+            """Hay un desfase de 4 horas de la predicción de la API a la primera hora
+                que nos interesa"""
+            if (horas >= 4 and horas < (tiempo+4)): 
+                t = datetime.utcfromtimestamp(key['time']).strftime('%d-%m %H:%M')
+                """JSON"""
+                resultado.append({'hour':t, 'temp':key['temperature'], 'hum':(key['humidity']*100.0)})
+            if (horas == (tiempo+4)): break
     
         return resultado
-        
-#if __name__== "__main__":
-#    predicc = Prediccion()
-    #print(predicc.get_predicciones_api(12))
-    #print(predicc.get_predicciones_arima(12))
