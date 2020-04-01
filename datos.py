@@ -40,8 +40,6 @@ class Datos:
         
         """Creamos la base de datos y la colección"""
         self.coleccion = cliente['PrediccionesBD']['DatosTiempo']
-        """Vaciamos la colección para no acumular datos."""
-        self.coleccion.delete_many({})
         """Transformamos el dataframe a diccionario para poder insertarlo"""
         df_dict = dataframe.to_dict("records")
         indice = self.coleccion.insert_one({'index':'SF', 'datos':df_dict}).inserted_id
